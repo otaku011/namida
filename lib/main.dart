@@ -115,7 +115,7 @@ void main() async {
     Language.initialize(),
   ]);
   ConnectivityController.inst.initialize();
-  ClipboardController.inst.initialize();
+  ClipboardController.inst.setClipboardMonitoringStatus(settings.enableClipboardMonitoring.value);
 
   /// updates values on startup
   Indexer.inst.updateImageSizeInStorage();
@@ -213,15 +213,22 @@ Future<void> _initializeIntenties() async {
         final paths = <String>[];
         final m3uPaths = <String>{};
         files.loop((f, _) {
-          final path = f.realPath?.replaceAll('\\', '') ?? f.value;
+          final path = f.realPath?.replaceAll('\\', '');
           if (path != null) {
             if (kM3UPlaylistsExtensions.any((ext) => path.endsWith(ext))) {
               m3uPaths.add(path);
             } else {
               paths.add(path);
             }
+          } else {
+            f.value?.split('\n').loop((e, index) {
+              e.split('https://').loop((line, index) {
+                if (line.isNotEmpty) paths.add("https://$line");
+              });
+            });
           }
         });
+
         if (m3uPaths.isNotEmpty) {
           final allTracks = await PlaylistController.inst.readM3UFiles(m3uPaths);
           final err = await playExternalFiles(allTracks.map((e) => e.path));
@@ -231,9 +238,17 @@ Future<void> _initializeIntenties() async {
             final id = e.getYoutubeID;
             return id == '' ? null : id;
           }).whereType<String>();
+          final ytPlaylists = paths.map((e) {
+            final match = e.isEmpty ? null : kYoutubeRegexPlaylists.firstMatch(e)?[0];
+            return match;
+          }).whereType<String>();
           if (youtubeIds.isNotEmpty) {
             await _waitForFirstBuildContext.future;
             settings.onYoutubeLinkOpen.value.execute(youtubeIds);
+          } else if (ytPlaylists.isNotEmpty) {
+            for (final pl in ytPlaylists) {
+              await settings.onYoutubeLinkOpen.value.executePlaylist(pl, context: rootContext);
+            }
           } else {
             final existing = paths.where((element) => File(element).existsSync()); // this for sussy links
             final err = await playExternalFiles(existing);

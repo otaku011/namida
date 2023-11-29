@@ -172,6 +172,8 @@ abstract class LanguageKeys {
   String get ENABLE_BLUR_EFFECT => _getKey('ENABLE_BLUR_EFFECT');
   String get ENABLE_BOTTOM_NAV_BAR_SUBTITLE => _getKey('ENABLE_BOTTOM_NAV_BAR_SUBTITLE');
   String get ENABLE_BOTTOM_NAV_BAR => _getKey('ENABLE_BOTTOM_NAV_BAR');
+  String get ENABLE_CLIPBOARD_MONITORING => _getKey('ENABLE_CLIPBOARD_MONITORING');
+  String get ENABLE_CLIPBOARD_MONITORING_SUBTITLE => _getKey('ENABLE_CLIPBOARD_MONITORING_SUBTITLE');
   String get ENABLE_CROSSFADE_EFFECT => _getKey('ENABLE_CROSSFADE_EFFECT');
   String get ENABLE_FADE_EFFECT_ON_PLAY_PAUSE => _getKey('ENABLE_FADE_EFFECT_ON_PLAY_PAUSE');
   String get ENABLE_FOLDERS_HIERARCHY => _getKey('ENABLE_FOLDERS_HIERARCHY');
@@ -209,6 +211,7 @@ abstract class LanguageKeys {
   String get FAILED_EDITS => _getKey('FAILED_EDITS');
   String get FAILED => _getKey('FAILED');
   String get FAVOURITES => _getKey('FAVOURITES');
+  String get FETCHING => _getKey('FETCHING');
   String get FILE_NAME_WO_EXT => _getKey('FILE_NAME_WO_EXT');
   String get FILE_NAME => _getKey('FILE_NAME');
   String get FILE => _getKey('FILE');
@@ -276,6 +279,7 @@ abstract class LanguageKeys {
   String get INFO => _getKey('INFO');
   String get INSERTED => _getKey('INSERTED');
   String get INSTANTLY_APPLIES => _getKey('INSTANTLY_APPLIES');
+  String get INVERT_SELECTION => _getKey('INVERT_SELECTION');
   String get ITEM => _getKey('ITEM');
   String get I_READ_AND_AGREE => _getKey('I_READ_AND_AGREE');
   String get JUMP_TO_DAY => _getKey('JUMP_TO_DAY');
@@ -375,6 +379,7 @@ abstract class LanguageKeys {
   String get ON_NOTIFICATION_TAP => _getKey('ON_NOTIFICATION_TAP');
   String get ON_OPENING_YOUTUBE_LINK => _getKey('ON_OPENING_YOUTUBE_LINK');
   String get ON_VOLUME_ZERO => _getKey('ON_VOLUME_ZERO');
+  String get OPEN => _getKey('OPEN');
   String get OPEN_APP => _getKey('OPEN_APP');
   String get OPEN_IN_YOUTUBE_VIEW => _getKey('OPEN_IN_YOUTUBE_VIEW');
   String get OPEN_MINIPLAYER => _getKey('OPEN_MINIPLAYER');

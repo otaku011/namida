@@ -65,8 +65,10 @@ import 'package:namida/youtube/controller/youtube_controller.dart';
 import 'package:namida/youtube/controller/youtube_history_controller.dart';
 import 'package:namida/youtube/functions/add_to_playlist_sheet.dart';
 import 'package:namida/youtube/functions/download_sheet.dart';
+import 'package:namida/youtube/functions/yt_playlist_utils.dart';
 import 'package:namida/youtube/pages/youtube_home_view.dart';
 import 'package:namida/youtube/pages/yt_history_page.dart';
+import 'package:namida/youtube/pages/yt_playlist_download_subpage.dart';
 import 'package:namida/youtube/pages/yt_playlist_subpage.dart';
 import 'package:namida/youtube/youtube_playlists_view.dart';
 
@@ -253,6 +255,34 @@ extension CacheGetterVideo on VideoOnlyStream {
     if (id == null) return null;
     final path = cachePath(id, directory: directory);
     return File(path).existsSync() ? File(path) : null;
+  }
+}
+
+extension StreamInfoUtils on StreamInfoItem {
+  VideoInfo toVideoInfo() {
+    return VideoInfo(
+      id: id,
+      url: url,
+      name: name,
+      uploaderName: uploaderName,
+      uploaderUrl: uploaderUrl,
+      uploaderAvatarUrl: uploaderAvatarUrl,
+      date: date,
+      isDateApproximation: isDateApproximation,
+      description: null,
+      duration: duration,
+      viewCount: viewCount,
+      likeCount: null,
+      category: null,
+      ageLimit: null,
+      tags: null,
+      thumbnailUrl: thumbnailUrl,
+      isUploaderVerified: isUploaderVerified,
+      textualUploadDate: textualUploadDate,
+      uploaderSubscriberCount: -1,
+      privacy: null,
+      isShortFormContent: isShortFormContent,
+    );
   }
 }
 
@@ -487,47 +517,81 @@ extension OnYoutubeLinkOpenActionUtils on OnYoutubeLinkOpenAction {
   String toText() => _NamidaConverters.inst.getTitle(this);
   IconData toIcon() => _NamidaConverters.inst.getIcon(this);
 
-  Future<void> execute(Iterable<String> ids) async {
+  Future<void> executePlaylist(String playlistUrl, {YoutubePlaylist? playlist, required BuildContext? context}) async {
+    final plInfo = playlist ?? await YoutubeController.inst.getPlaylistInfo(playlistUrl);
+    if (plInfo == null) return snackyy(title: lang.ERROR, message: 'error retrieving playlist info, check your connection?');
+    final didFetch = await plInfo.fetchAllPlaylistStreams(context: context?.mounted == true ? context : null);
+    if (!didFetch) return snackyy(title: lang.ERROR, message: 'error fetching playlist videos');
+
+    final streams = plInfo.streams;
+
     switch (this) {
       case OnYoutubeLinkOpenAction.showDownload:
-        showDownloadVideoBottomSheet(videoId: ids.first);
+        plInfo.showPlaylistDownloadSheet(context: context?.mounted == true ? context : null);
       case OnYoutubeLinkOpenAction.addToPlaylist:
-        final idnames = {for (final id in ids) id: YoutubeController.inst.fetchVideoDetailsFromCacheSync(id)?.name};
-        showAddToPlaylistSheet(ids: ids, idsNamesLookup: idnames);
+        showAddToPlaylistSheet(ids: streams.map((e) => e.id ?? ''), idsNamesLookup: {});
       case OnYoutubeLinkOpenAction.play:
-        await Player.inst.playOrPause(0, ids.map((e) => YoutubeID(id: e, playlistID: null)), QueueSource.others);
+        await Player.inst.playOrPause(0, streams.map((e) => YoutubeID(id: e.id ?? '', playlistID: null)), QueueSource.others);
       case OnYoutubeLinkOpenAction.alwaysAsk:
-        {
-          final newVals = List<OnYoutubeLinkOpenAction>.from(OnYoutubeLinkOpenAction.values);
-          newVals.remove(OnYoutubeLinkOpenAction.alwaysAsk);
-          NamidaNavigator.inst.navigateDialog(
-            dialog: CustomBlurryDialog(
-              title: lang.CHOOSE,
-              normalTitleStyle: true,
-              actions: [
-                NamidaButton(
-                  text: lang.DONE,
-                  onPressed: NamidaNavigator.inst.closeDialog,
-                )
-              ],
-              child: Column(
-                children: newVals
-                    .map(
-                      (e) => CustomListTile(
-                        icon: e.toIcon(),
-                        title: e.toText(),
-                        onTap: () => e.execute(ids),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          );
-        }
+        _showAskDialog((action) => action.executePlaylist(playlistUrl, context: context, playlist: plInfo));
 
       default:
         null;
     }
+  }
+
+  Future<void> execute(Iterable<String> ids) async {
+    switch (this) {
+      case OnYoutubeLinkOpenAction.showDownload:
+        if (ids.length == 1) {
+          showDownloadVideoBottomSheet(videoId: ids.first);
+        } else {
+          NamidaNavigator.inst.navigateTo(
+            YTPlaylistDownloadPage(
+              ids: ids.map((e) => YoutubeID(id: e, playlistID: null)).toList(),
+              playlistName: 'External - ${DateTime.now().millisecondsSinceEpoch.dateAndClockFormattedOriginal}',
+              infoLookup: const {},
+            ),
+          );
+        }
+      case OnYoutubeLinkOpenAction.addToPlaylist:
+        showAddToPlaylistSheet(ids: ids, idsNamesLookup: {});
+      case OnYoutubeLinkOpenAction.play:
+        await Player.inst.playOrPause(0, ids.map((e) => YoutubeID(id: e, playlistID: null)), QueueSource.others);
+      case OnYoutubeLinkOpenAction.alwaysAsk:
+        _showAskDialog((action) => action.execute(ids));
+
+      default:
+        null;
+    }
+  }
+
+  void _showAskDialog(void Function(OnYoutubeLinkOpenAction action) onTap) {
+    final newVals = List<OnYoutubeLinkOpenAction>.from(OnYoutubeLinkOpenAction.values);
+    newVals.remove(OnYoutubeLinkOpenAction.alwaysAsk);
+    NamidaNavigator.inst.navigateDialog(
+      dialog: CustomBlurryDialog(
+        title: lang.CHOOSE,
+        normalTitleStyle: true,
+        actions: [
+          NamidaButton(
+            text: lang.DONE,
+            onPressed: NamidaNavigator.inst.closeDialog,
+          )
+        ],
+        child: Column(
+          children: newVals
+              .map(
+                (e) => CustomListTile(
+                  icon: e.toIcon(),
+                  title: e.toText(),
+                  onTap: () => onTap(e),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
   }
 }
 
@@ -691,6 +755,10 @@ extension WidgetsPagess on Widget {
       case YTNormalPlaylistSubpage:
         route = RouteType.YOUTUBE_PLAYLIST_SUBPAGE;
         name = (this as YTNormalPlaylistSubpage).playlist.name;
+        break;
+      case YTHostedPlaylistSubpage:
+        route = RouteType.YOUTUBE_PLAYLIST_SUBPAGE_HOSTED;
+        name = (this as YTHostedPlaylistSubpage).playlist.name ?? '';
         break;
       case YoutubeHistoryPage:
         route = RouteType.YOUTUBE_HISTORY_SUBPAGE;

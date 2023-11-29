@@ -26,7 +26,11 @@ class BackupController {
   final RxBool isCreatingBackup = false.obs;
   final RxBool isRestoringBackup = false.obs;
 
+  String get _backupDirectoryPath => settings.defaultBackupLocation.value;
+
   Future<void> createBackupFile(List<String> backupItemsPaths) async {
+    if (isCreatingBackup.value) return snackyy(title: lang.NOTE, message: lang.ANOTHER_PROCESS_IS_RUNNING);
+
     if (!await requestManageStoragePermission()) {
       return;
     }
@@ -36,8 +40,10 @@ class BackupController {
     final format = DateFormat('yyyy-MM-dd hh.mm.ss');
     final date = format.format(DateTime.now().toLocal());
 
+    final backupDirPath = _backupDirectoryPath;
+
     // creates directories and file
-    final dir = await Directory(AppDirs.BACKUPS).create();
+    final dir = await Directory(backupDirPath).create();
     await File("${dir.path}/Namida Backup - $date.zip").create();
     final sourceDir = Directory(AppDirs.USER_DATA);
 
@@ -81,7 +87,7 @@ class BackupController {
         await ZipFile.createFromFiles(sourceDir: sourceDir, files: youtubeFilesOnly, zipFile: tempAllYoutube);
       }
 
-      final zipFile = File("${AppDirs.BACKUPS}Namida Backup - $date.zip");
+      final zipFile = File("$backupDirPath/Namida Backup - $date.zip");
       final allFiles = [
         if (tempAllLocal != null) tempAllLocal,
         if (tempAllYoutube != null) tempAllYoutube,
@@ -105,28 +111,32 @@ class BackupController {
     isCreatingBackup.value = false;
   }
 
+  static List<File> _getBackupFilesSorted(String dirPath) {
+    final dir = Directory(dirPath);
+    final possibleFiles = dir.listSync();
+
+    final List<File> matchingBackups = [];
+    possibleFiles.loop((pf, index) {
+      if (pf is File) {
+        if (pf.path.getFilename.startsWith('Namida Backup - ')) {
+          matchingBackups.add(pf);
+        }
+      }
+    });
+
+    // seems like the files are already sorted but anyways
+    matchingBackups.sortByReverse((e) => e.lastModifiedSync());
+
+    return matchingBackups;
+  }
+
   Future<void> restoreBackupOnTap(bool auto) async {
-    if (!await requestManageStoragePermission()) {
-      return;
-    }
-    NamidaNavigator.inst.closeDialog();
+    if (isRestoringBackup.value) return snackyy(title: lang.NOTE, message: lang.ANOTHER_PROCESS_IS_RUNNING);
+
     File? backupzip;
     if (auto) {
-      final dir = Directory(AppDirs.BACKUPS);
-      final possibleFiles = dir.listSync();
-
-      final List<File> filessss = [];
-      possibleFiles.loop((pf, index) {
-        if (pf.path.getFilename.startsWith('Namida Backup - ')) {
-          if (pf is File) {
-            filessss.add(pf);
-          }
-        }
-      });
-
-      // seems like the files are already sorted but anyways
-      filessss.sortByReverse((e) => e.lastModifiedSync());
-      backupzip = filessss.firstOrNull;
+      final sortedFiles = await _getBackupFilesSorted.thready(_backupDirectoryPath);
+      backupzip = sortedFiles.firstOrNull;
     } else {
       final filePicked = await FilePicker.platform.pickFiles(allowedExtensions: ['zip'], type: FileType.custom);
       final path = filePicked?.files.first.path;

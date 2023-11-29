@@ -90,7 +90,7 @@ dependencies:
   basic_audio_handler:
     git:
       url: https://github.com/namidaco/basic_audio_handler
-      ref: c5ce262b806807fcc7c0528e75eb70ee1076b89d
+      ref: 10c9b130f296700fd74de300dcf78fde2003d55e
   on_audio_query:
     git:
       url: https://github.com/MSOB7YY/on_audio_query
@@ -107,7 +107,7 @@ dependencies:
   newpipeextractor_dart:
     git:
       url: https://github.com/MSOB7YY/NewPipeExtractor_Dart
-      ref: 86cb979af884ef8f0fc68e14ca0357faa6f16728
+      ref: e54554601087e076421d290b78ea9ef058aa5ab3
 
   # ---- Image Utilities ----
   extended_image: ^8.0.2
