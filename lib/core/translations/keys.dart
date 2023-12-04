@@ -44,6 +44,7 @@ abstract class LanguageKeys {
   String get ARTISTS => _getKey('ARTISTS');
   String get ARTWORK => _getKey('ARTWORK');
   String get ARTWORKS => _getKey('ARTWORKS');
+  String get ARTWORK_GESTURES => _getKey('ARTWORK_GESTURES');
   String get AUDIO => _getKey('AUDIO');
   String get AUDIO_CACHE => _getKey('AUDIO_CACHE');
   String get AUDIO_ONLY => _getKey('AUDIO_ONLY');
@@ -154,6 +155,7 @@ abstract class LanguageKeys {
   String get DONE => _getKey('DONE');
   String get DONT_ASK_AGAIN => _getKey('DONT_ASK_AGAIN');
   String get DONT_RESTORE_POSITION => _getKey('DONT_RESTORE_POSITION');
+  String get DOUBLE_TAP_TO_TOGGLE_LYRICS => _getKey('DOUBLE_TAP_TO_TOGGLE_LYRICS');
   String get DOWNLOAD => _getKey('DOWNLOAD');
   String get DOWNLOADING_WILL_OVERRIDE_IT => _getKey('DOWNLOADING_WILL_OVERRIDE_IT');
   String get DOWNLOADS => _getKey('DOWNLOADS');
@@ -212,6 +214,7 @@ abstract class LanguageKeys {
   String get FAILED => _getKey('FAILED');
   String get FAVOURITES => _getKey('FAVOURITES');
   String get FETCHING => _getKey('FETCHING');
+  String get FILENAME_SHOULDNT_START_WITH => _getKey('FILENAME_SHOULDNT_START_WITH');
   String get FILE_NAME_WO_EXT => _getKey('FILE_NAME_WO_EXT');
   String get FILE_NAME => _getKey('FILE_NAME');
   String get FILE => _getKey('FILE');
@@ -227,6 +230,7 @@ abstract class LanguageKeys {
   String get FINISHED => _getKey('FINISHED');
   String get FINISHED_UPDATING_LIBRARY => _getKey('FINISHED_UPDATING_LIBRARY');
   String get FIX_YTDLP_BIG_THUMBNAIL_SIZE => _getKey('FIX_YTDLP_BIG_THUMBNAIL_SIZE');
+  String get FLOATING_ACTION_BUTTON => _getKey('FLOATING_ACTION_BUTTON');
   String get FOLDER_NAME => _getKey('FOLDER_NAME');
   String get FOLDER => _getKey('FOLDER');
   String get FOLDERS => _getKey('FOLDERS');
@@ -393,6 +397,7 @@ abstract class LanguageKeys {
   String get PALETTE_MIX => _getKey('PALETTE_MIX');
   String get PALETTE_NEW_MIX => _getKey('PALETTE_NEW_MIX');
   String get PALETTE_SELECTED_MIX => _getKey('PALETTE_SELECTED_MIX');
+  String get PARALLEL_DOWNLOADS => _getKey('PARALLEL_DOWNLOADS');
   String get PARSED => _getKey('PARSED');
   String get PATH => _getKey('PATH');
   String get PAUSE => _getKey('PAUSE');
@@ -437,6 +442,7 @@ abstract class LanguageKeys {
   String get RECENT_ALBUMS => _getKey('RECENT_ALBUMS');
   String get RECENT_ARTISTS => _getKey('RECENT_ARTISTS');
   String get RECENT_LISTENS => _getKey('RECENT_LISTENS');
+  String get REMEMBER_AUDIO_ONLY_MODE => _getKey('REMEMBER_AUDIO_ONLY_MODE');
   String get REPLACE_ALL_LISTENS_WITH_ANOTHER_TRACK => _getKey('REPLACE_ALL_LISTENS_WITH_ANOTHER_TRACK');
   String get RE_INDEX_SUBTITLE => _getKey('RE_INDEX_SUBTITLE');
   String get RE_INDEX_WARNING => _getKey('RE_INDEX_WARNING');
@@ -453,6 +459,7 @@ abstract class LanguageKeys {
   String get REMOVE_WHITESPACES => _getKey('REMOVE_WHITESPACES');
   String get REMOVE => _getKey('REMOVE');
   String get REMOVED => _getKey('REMOVED');
+  String get RENAME => _getKey('RENAME');
   String get RENAME_PLAYLIST => _getKey('RENAME_PLAYLIST');
   String get REORDERABLE => _getKey('REORDERABLE');
   String get REPEAT_FOR_N_TIMES => _getKey('REPEAT_FOR_N_TIMES');
@@ -479,6 +486,7 @@ abstract class LanguageKeys {
   String get SAMPLE_RATE => _getKey('SAMPLE_RATE');
   String get SAVE => _getKey('SAVE');
   String get SAVED_IN => _getKey('SAVED_IN');
+  String get SCALE_MULTIPLIER => _getKey('SCALE_MULTIPLIER');
   String get SEARCH => _getKey('SEARCH');
   String get SEARCH_YOUTUBE => _getKey('SEARCH_YOUTUBE');
   String get SECONDS => _getKey('SECONDS');

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_scrollbar_modified/flutter_scrollbar_modified.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -155,7 +154,7 @@ class JsonToHistoryParser {
                 child: Obx(
                   () {
                     final missing = _latestMissingMap.entries.toList()..sortByReverse((e) => e.value.length);
-                    return CupertinoScrollbar(
+                    return NamidaScrollbar(
                       child: ListView.separated(
                         separatorBuilder: (context, index) => const SizedBox(height: 8.0),
                         itemCount: missing.length,
@@ -300,8 +299,8 @@ class JsonToHistoryParser {
           missingEntry.loop((e, index) => allMissingEntries.addForce(e, e.dateMSSE));
         },
       );
-      datesAdded.addAll(res.$1);
-      datesAddedYoutube.addAll(res.$2);
+      datesAdded.addAll(res.historyDays);
+      datesAddedYoutube.addAll(res.ytHistoryDays);
       // await _addYoutubeSourceFromDirectory(isMatchingTypeLink, matchYT, matchYTMusic);
     }
     if (source == TrackSource.lastfm) {
@@ -351,7 +350,7 @@ class JsonToHistoryParser {
   /// Returns [daysToSave] to be used by [sortHistoryTracks] && [saveHistoryToStorage].
   ///
   /// The first one is for normal history, the second is for youtube history.
-  Future<(List<int>, List<int>)> _parseYTHistoryJsonAndAdd({
+  Future<({List<int> historyDays, List<int> ytHistoryDays})> _parseYTHistoryJsonAndAdd({
     required File file,
     required bool isMatchingTypeLink,
     required bool isMatchingTypeTitleAndArtist,
@@ -446,7 +445,7 @@ class JsonToHistoryParser {
     }
 
     isParsing.value = false;
-    return (datesToSave, datesToSaveYoutube);
+    return (historyDays: datesToSave, ytHistoryDays: datesToSaveYoutube);
   }
 
   bool _canSafelyAddToYTHistory({

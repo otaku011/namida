@@ -66,6 +66,9 @@ class SettingsController {
   final RxList<String> trackGenresSeparatorsBlacklist = <String>[].obs;
   final Rx<SortType> tracksSort = SortType.title.obs;
   final RxBool tracksSortReversed = false.obs;
+  final Rx<SortType> tracksSortSearch = SortType.title.obs;
+  final RxBool tracksSortSearchReversed = false.obs;
+  final RxBool tracksSortSearchIsAuto = true.obs;
   final Rx<GroupSortType> albumSort = GroupSortType.album.obs;
   final RxBool albumSortReversed = false.obs;
   final Rx<GroupSortType> artistSort = GroupSortType.artistsList.obs;
@@ -114,6 +117,7 @@ class SettingsController {
   final RxBool enableLyrics = false.obs;
   final Rx<VideoPlaybackSource> videoPlaybackSource = VideoPlaybackSource.auto.obs;
   final RxList<String> youtubeVideoQualities = ['480p', '360p', '240p', '144p'].obs;
+  final RxDouble animatingThumbnailScaleMultiplier = 1.0.obs;
   final RxInt animatingThumbnailIntensity = 25.obs;
   final RxBool animatingThumbnailInversed = false.obs;
   final RxBool enablePartyModeInMiniplayer = false.obs;
@@ -164,6 +168,10 @@ class SettingsController {
   final RxBool swipeableDrawer = true.obs;
   final RxBool dismissibleMiniplayer = false.obs;
   final RxBool enableClipboardMonitoring = false.obs;
+  final RxBool ytIsAudioOnlyMode = false.obs;
+  final RxBool ytRememberAudioOnly = false.obs;
+  final RxBool artworkGestureScale = false.obs;
+  final RxBool artworkGestureDoubleTapLRC = true.obs;
   final RxList<TagField> tagFieldsToEdit = <TagField>[
     TagField.trackNumber,
     TagField.year,
@@ -210,6 +218,7 @@ class SettingsController {
   final onYoutubeLinkOpen = OnYoutubeLinkOpenAction.alwaysAsk.obs;
   final performanceMode = PerformanceMode.balanced.obs;
   final killPlayerAfterDismissingAppMode = KillAppMode.ifNotPlaying.obs;
+  final floatingActionButton = FABType.none.obs;
 
   final RxMap<TrackTilePosition, TrackTileItem> trackItem = {
     TrackTilePosition.row1Item1: TrackTileItem.title,
@@ -346,6 +355,9 @@ class SettingsController {
       trackGenresSeparatorsBlacklist.value = List<String>.from(json['trackGenresSeparatorsBlacklist'] ?? trackGenresSeparatorsBlacklist);
       tracksSort.value = SortType.values.getEnum(json['tracksSort']) ?? tracksSort.value;
       tracksSortReversed.value = json['tracksSortReversed'] ?? tracksSortReversed.value;
+      tracksSortSearch.value = SortType.values.getEnum(json['tracksSortSearch']) ?? tracksSortSearch.value;
+      tracksSortSearchReversed.value = json['tracksSortSearchReversed'] ?? tracksSortSearchReversed.value;
+      tracksSortSearchIsAuto.value = json['tracksSortSearchIsAuto'] ?? tracksSortSearchIsAuto.value;
       albumSort.value = GroupSortType.values.getEnum(json['albumSort']) ?? albumSort.value;
       albumSortReversed.value = json['albumSortReversed'] ?? albumSortReversed.value;
       artistSort.value = GroupSortType.values.getEnum(json['artistSort']) ?? artistSort.value;
@@ -381,6 +393,7 @@ class SettingsController {
       videoPlaybackSource.value = VideoPlaybackSource.values.getEnum(json['VideoPlaybackSource']) ?? videoPlaybackSource.value;
       youtubeVideoQualities.value = List<String>.from(json['youtubeVideoQualities'] ?? youtubeVideoQualities);
 
+      animatingThumbnailScaleMultiplier.value = json['animatingThumbnailScaleMultiplier'] ?? animatingThumbnailScaleMultiplier.value;
       animatingThumbnailIntensity.value = json['animatingThumbnailIntensity'] ?? animatingThumbnailIntensity.value;
       animatingThumbnailInversed.value = json['animatingThumbnailInversed'] ?? animatingThumbnailInversed.value;
       enablePartyModeInMiniplayer.value = json['enablePartyModeInMiniplayer'] ?? enablePartyModeInMiniplayer.value;
@@ -431,6 +444,10 @@ class SettingsController {
       swipeableDrawer.value = json['swipeableDrawer'] ?? swipeableDrawer.value;
       dismissibleMiniplayer.value = json['dismissibleMiniplayer'] ?? dismissibleMiniplayer.value;
       enableClipboardMonitoring.value = json['enableClipboardMonitoring'] ?? enableClipboardMonitoring.value;
+      ytRememberAudioOnly.value = json['ytRememberAudioOnly'] ?? ytRememberAudioOnly.value;
+      if (ytRememberAudioOnly.value) ytIsAudioOnlyMode.value = json['ytIsAudioOnlyMode'] ?? ytIsAudioOnlyMode.value;
+      artworkGestureScale.value = json['artworkGestureScale'] ?? artworkGestureScale.value;
+      artworkGestureDoubleTapLRC.value = json['artworkGestureDoubleTapLRC'] ?? artworkGestureDoubleTapLRC.value;
 
       final listFromStorage = List<String>.from(json['tagFieldsToEdit'] ?? []);
       tagFieldsToEdit.value = listFromStorage.isNotEmpty ? List<TagField>.from(listFromStorage.map((e) => TagField.values.getEnum(e))) : tagFieldsToEdit;
@@ -467,6 +484,7 @@ class SettingsController {
       onYoutubeLinkOpen.value = OnYoutubeLinkOpenAction.values.getEnum(json['onYoutubeLinkOpen']) ?? onYoutubeLinkOpen.value;
       performanceMode.value = PerformanceMode.values.getEnum(json['performanceMode']) ?? performanceMode.value;
       killPlayerAfterDismissingAppMode.value = KillAppMode.values.getEnum(json['killPlayerAfterDismissingAppMode']) ?? killPlayerAfterDismissingAppMode.value;
+      floatingActionButton.value = FABType.values.getEnum(json['floatingActionButton']) ?? floatingActionButton.value;
 
       trackItem.value = _getEnumMap(
             json['trackItem'],
@@ -566,6 +584,9 @@ class SettingsController {
       'trackGenresSeparatorsBlacklist': trackGenresSeparatorsBlacklist.toList(),
       'tracksSort': tracksSort.value.convertToString,
       'tracksSortReversed': tracksSortReversed.value,
+      'tracksSortSearch': tracksSortSearch.value.convertToString,
+      'tracksSortSearchReversed': tracksSortSearchReversed.value,
+      'tracksSortSearchIsAuto': tracksSortSearchIsAuto.value,
       'albumSort': albumSort.value.convertToString,
       'albumSortReversed': albumSortReversed.value,
       'artistSort': artistSort.value.convertToString,
@@ -592,6 +613,7 @@ class SettingsController {
       'enableLyrics': enableLyrics.value,
       'videoPlaybackSource': videoPlaybackSource.value.convertToString,
       'youtubeVideoQualities': youtubeVideoQualities.toList(),
+      'animatingThumbnailScaleMultiplier': animatingThumbnailScaleMultiplier.value,
       'animatingThumbnailIntensity': animatingThumbnailIntensity.value,
       'animatingThumbnailInversed': animatingThumbnailInversed.value,
       'enablePartyModeInMiniplayer': enablePartyModeInMiniplayer.value,
@@ -642,6 +664,10 @@ class SettingsController {
       'swipeableDrawer': swipeableDrawer.value,
       'dismissibleMiniplayer': dismissibleMiniplayer.value,
       'enableClipboardMonitoring': enableClipboardMonitoring.value,
+      'ytIsAudioOnlyMode': ytIsAudioOnlyMode.value,
+      'ytRememberAudioOnly': ytRememberAudioOnly.value,
+      'artworkGestureScale': artworkGestureScale.value,
+      'artworkGestureDoubleTapLRC': artworkGestureDoubleTapLRC.value,
       'tagFieldsToEdit': tagFieldsToEdit.mapped((element) => element.convertToString),
       'wakelockMode': wakelockMode.value.convertToString,
       'localVideoMatchingType': localVideoMatchingType.value.convertToString,
@@ -652,6 +678,7 @@ class SettingsController {
       'onYoutubeLinkOpen': onYoutubeLinkOpen.value.convertToString,
       'performanceMode': performanceMode.value.convertToString,
       'killPlayerAfterDismissingAppMode': killPlayerAfterDismissingAppMode.value.convertToString,
+      'floatingActionButton': floatingActionButton.value.convertToString,
       'mostPlayedTimeRange': mostPlayedTimeRange.value.convertToString,
       'mostPlayedCustomDateRange': mostPlayedCustomDateRange.value.toJson(),
       'mostPlayedCustomisStartOfDay': mostPlayedCustomisStartOfDay.value,
@@ -735,6 +762,9 @@ class SettingsController {
     List<String>? trackGenresSeparatorsBlacklist,
     SortType? tracksSort,
     bool? tracksSortReversed,
+    SortType? tracksSortSearch,
+    bool? tracksSortSearchReversed,
+    bool? tracksSortSearchIsAuto,
     GroupSortType? albumSort,
     bool? albumSortReversed,
     GroupSortType? artistSort,
@@ -764,6 +794,7 @@ class SettingsController {
     bool? enableLyrics,
     VideoPlaybackSource? videoPlaybackSource,
     List<String>? youtubeVideoQualities,
+    double? animatingThumbnailScaleMultiplier,
     int? animatingThumbnailIntensity,
     bool? animatingThumbnailInversed,
     bool? enablePartyModeInMiniplayer,
@@ -822,6 +853,10 @@ class SettingsController {
     bool? swipeableDrawer,
     bool? dismissibleMiniplayer,
     bool? enableClipboardMonitoring,
+    bool? ytIsAudioOnlyMode,
+    bool? ytRememberAudioOnly,
+    bool? artworkGestureScale,
+    bool? artworkGestureDoubleTapLRC,
     List<TagField>? tagFieldsToEdit,
     WakelockMode? wakelockMode,
     LocalVideoMatchingType? localVideoMatchingType,
@@ -832,6 +867,7 @@ class SettingsController {
     OnYoutubeLinkOpenAction? onYoutubeLinkOpen,
     PerformanceMode? performanceMode,
     KillAppMode? killPlayerAfterDismissingAppMode,
+    FABType? floatingActionButton,
     MostPlayedTimeRange? mostPlayedTimeRange,
     DateRange? mostPlayedCustomDateRange,
     bool? mostPlayedCustomisStartOfDay,
@@ -990,6 +1026,15 @@ class SettingsController {
     if (tracksSortReversed != null) {
       this.tracksSortReversed.value = tracksSortReversed;
     }
+    if (tracksSortSearch != null) {
+      this.tracksSortSearch.value = tracksSortSearch;
+    }
+    if (tracksSortSearchReversed != null) {
+      this.tracksSortSearchReversed.value = tracksSortSearchReversed;
+    }
+    if (tracksSortSearchIsAuto != null) {
+      this.tracksSortSearchIsAuto.value = tracksSortSearchIsAuto;
+    }
     if (albumSort != null) {
       this.albumSort.value = albumSort;
     }
@@ -1100,6 +1145,9 @@ class SettingsController {
     }
     if (videoPlaybackSource != null) {
       this.videoPlaybackSource.value = videoPlaybackSource;
+    }
+    if (animatingThumbnailScaleMultiplier != null) {
+      this.animatingThumbnailScaleMultiplier.value = animatingThumbnailScaleMultiplier;
     }
     if (animatingThumbnailIntensity != null) {
       this.animatingThumbnailIntensity.value = animatingThumbnailIntensity;
@@ -1221,6 +1269,7 @@ class SettingsController {
     if (ytPreferNewComments != null) {
       this.ytPreferNewComments.value = ytPreferNewComments;
     }
+
     if (ytAutoExtractVideoTagsFromInfo != null) {
       this.ytAutoExtractVideoTagsFromInfo.value = ytAutoExtractVideoTagsFromInfo;
     }
@@ -1275,6 +1324,18 @@ class SettingsController {
     if (enableClipboardMonitoring != null) {
       this.enableClipboardMonitoring.value = enableClipboardMonitoring;
     }
+    if (ytIsAudioOnlyMode != null) {
+      this.ytIsAudioOnlyMode.value = ytIsAudioOnlyMode;
+    }
+    if (ytRememberAudioOnly != null) {
+      this.ytRememberAudioOnly.value = ytRememberAudioOnly;
+    }
+    if (artworkGestureScale != null) {
+      this.artworkGestureScale.value = artworkGestureScale;
+    }
+    if (artworkGestureDoubleTapLRC != null) {
+      this.artworkGestureDoubleTapLRC.value = artworkGestureDoubleTapLRC;
+    }
     if (tagFieldsToEdit != null) {
       tagFieldsToEdit.loop((d, index) {
         if (!this.tagFieldsToEdit.contains(d)) {
@@ -1308,6 +1369,9 @@ class SettingsController {
     }
     if (killPlayerAfterDismissingAppMode != null) {
       this.killPlayerAfterDismissingAppMode.value = killPlayerAfterDismissingAppMode;
+    }
+    if (floatingActionButton != null) {
+      this.floatingActionButton.value = floatingActionButton;
     }
     if (mostPlayedTimeRange != null) {
       this.mostPlayedTimeRange.value = mostPlayedTimeRange;

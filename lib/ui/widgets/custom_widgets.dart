@@ -776,11 +776,11 @@ class ListTileWithCheckMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final tileAlpha = context.isDarkMode ? 5 : 20;
     return Material(
-      borderRadius: BorderRadius.circular(16.0.multipliedRadius),
+      borderRadius: BorderRadius.circular(14.0.multipliedRadius),
       color: tileColor ?? Color.alphaBlend(context.theme.colorScheme.onBackground.withAlpha(tileAlpha), context.theme.cardTheme.color!),
       child: ListTile(
-        horizontalTitleGap: 10.0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0.multipliedRadius)),
+        horizontalTitleGap: dense ? 10.0 : 14.0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.0.multipliedRadius)),
         leading: leading ??
             Icon(
               icon ?? Broken.arrange_circle,
@@ -847,6 +847,7 @@ class NamidaExpansionTile extends StatelessWidget {
   final IconData? trailingIcon;
   final double trailingIconSize;
   final String titleText;
+  final String? subtitleText;
   final Color? textColor;
   final Color? textColorScheme;
   final List<Widget> children;
@@ -865,6 +866,7 @@ class NamidaExpansionTile extends StatelessWidget {
     this.trailingIcon = Broken.arrow_down_2,
     this.trailingIconSize = 20.0,
     required this.titleText,
+    this.subtitleText,
     this.textColor,
     this.textColorScheme,
     this.children = const <Widget>[],
@@ -902,17 +904,27 @@ class NamidaExpansionTile extends StatelessWidget {
                       icon: Icon(trailingIcon, size: trailingIconSize),
                     ),
                   )),
-        title: Text(
-          titleText,
-          style: context.textTheme.displayMedium?.copyWith(
-            color: textColor ??
-                (textColorScheme == null
-                    ? null
-                    : Color.alphaBlend(
-                        textColorScheme!.withAlpha(40),
-                        context.textTheme.displayMedium!.color!,
-                      )),
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              titleText,
+              style: context.textTheme.displayMedium?.copyWith(
+                color: textColor ??
+                    (textColorScheme == null
+                        ? null
+                        : Color.alphaBlend(
+                            textColorScheme!.withAlpha(40),
+                            context.textTheme.displayMedium!.color!,
+                          )),
+              ),
+            ),
+            if (subtitleText != null)
+              Text(
+                subtitleText!,
+                style: context.textTheme.displaySmall,
+              ),
+          ],
         ),
         childrenPadding: childrenPadding,
         children: children,
@@ -1830,6 +1842,7 @@ class SearchPageTitleRow extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Widget? trailing;
+  final Widget? subtitleWidget;
   final String? buttonText;
   final IconData? buttonIcon;
   final void Function()? onPressed;
@@ -1839,6 +1852,7 @@ class SearchPageTitleRow extends StatelessWidget {
     this.subtitle = '',
     required this.icon,
     this.trailing,
+    this.subtitleWidget,
     this.buttonText,
     this.buttonIcon,
     this.onPressed,
@@ -1860,6 +1874,7 @@ class SearchPageTitleRow extends StatelessWidget {
                   title,
                   style: context.textTheme.displayLarge?.copyWith(fontSize: 15.5.multipliedFontScale),
                 ),
+                if (subtitleWidget != null) subtitleWidget!,
                 if (subtitle != '')
                   Text(
                     subtitle,
@@ -2154,6 +2169,7 @@ class NamidaListView extends StatelessWidget {
   final List<Widget>? moreWidgets;
   final bool buildDefaultDragHandles;
   final ScrollPhysics? physics;
+  final Map<String, int> scrollConfig;
 
   const NamidaListView({
     super.key,
@@ -2170,13 +2186,14 @@ class NamidaListView extends StatelessWidget {
     this.onReorderStart,
     this.onReorderEnd,
     this.physics,
+    this.scrollConfig = const {},
   });
 
   @override
   Widget build(BuildContext context) {
     final sc = scrollController ?? ScrollController();
     return AnimationLimiter(
-      child: CupertinoScrollbar(
+      child: NamidaScrollbar(
         controller: sc,
         child: Column(
           children: [
@@ -2186,7 +2203,7 @@ class NamidaListView extends StatelessWidget {
                   ? KnownExtentsReorderableListView.builder(
                       itemExtents: itemExtents!,
                       scrollController: sc,
-                      padding: padding ?? const EdgeInsets.only(bottom: kBottomPadding),
+                      padding: padding ?? EdgeInsets.only(bottom: Dimensions.inst.globalBottomPaddingTotal),
                       itemBuilder: itemBuilder,
                       itemCount: itemCount,
                       onReorder: onReorder ?? (oldIndex, newIndex) {},
@@ -2200,7 +2217,7 @@ class NamidaListView extends StatelessWidget {
                   : ReorderableListView.builder(
                       itemExtent: itemExtents?.firstOrNull,
                       scrollController: sc,
-                      padding: padding ?? const EdgeInsets.only(bottom: kBottomPadding),
+                      padding: padding ?? EdgeInsets.only(bottom: Dimensions.inst.globalBottomPaddingTotal),
                       itemBuilder: itemBuilder,
                       itemCount: itemCount,
                       onReorder: onReorder ?? (oldIndex, newIndex) {},
@@ -2235,6 +2252,7 @@ class NamidaTracksList extends StatelessWidget {
   final bool displayTrackNumber;
   final bool shouldAnimate;
   final String Function(Selectable track)? thirdLineText;
+  final Map<String, int> scrollConfig;
 
   const NamidaTracksList({
     super.key,
@@ -2245,7 +2263,7 @@ class NamidaTracksList extends StatelessWidget {
     this.widgetsInColumn,
     this.paddingAfterHeader,
     this.scrollController,
-    this.padding = const EdgeInsets.only(bottom: kBottomPadding),
+    this.padding,
     required this.queueLength,
     this.isTrackSelectable = true,
     this.physics,
@@ -2253,6 +2271,7 @@ class NamidaTracksList extends StatelessWidget {
     this.displayTrackNumber = false,
     this.shouldAnimate = true,
     this.thirdLineText,
+    this.scrollConfig = const {},
   });
 
   @override
@@ -2265,6 +2284,7 @@ class NamidaTracksList extends StatelessWidget {
       itemExtents: List<double>.filled(queueLength, Dimensions.inst.trackTileItemExtent),
       padding: padding,
       physics: physics,
+      scrollConfig: scrollConfig,
       itemBuilder: itemBuilder ??
           (context, i) {
             if (queue != null) {
@@ -2333,6 +2353,7 @@ class NamidaInkWell extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final double? width;
   final double? height;
+  final AlignmentGeometry? alignment;
 
   /// Setting this to [true] will force the [borderRadius] to be [0.0].
   final bool transparentHighlight;
@@ -2350,6 +2371,7 @@ class NamidaInkWell extends StatelessWidget {
     this.margin,
     this.width,
     this.height,
+    this.alignment,
   });
 
   @override
@@ -2357,6 +2379,7 @@ class NamidaInkWell extends StatelessWidget {
     final realBorderRadius = transparentHighlight ? 0.0 : borderRadius;
     final borderR = BorderRadius.circular(realBorderRadius.multipliedRadius);
     return AnimatedContainer(
+      alignment: alignment,
       height: height,
       width: width,
       margin: margin,
@@ -2688,6 +2711,7 @@ class NamidaPopupWrapper extends StatelessWidget {
   final VoidCallback? onPop;
   final bool openOnTap;
   final bool openOnLongPress;
+  final bool useRootNavigator;
 
   const NamidaPopupWrapper({
     super.key,
@@ -2698,6 +2722,7 @@ class NamidaPopupWrapper extends StatelessWidget {
     this.onPop,
     this.openOnTap = true,
     this.openOnLongPress = true,
+    this.useRootNavigator = true,
   });
 
   void popMenu({bool handleClosing = true}) {
@@ -2718,7 +2743,7 @@ class NamidaPopupWrapper extends StatelessWidget {
     );
     await NamidaNavigator.inst.showMenu(
       showMenu(
-        useRootNavigator: true,
+        useRootNavigator: useRootNavigator,
         context: context,
         position: position,
         items: [
@@ -2982,6 +3007,141 @@ class NamidaOpacity extends StatelessWidget {
       key: key,
       opacity: opacity,
       child: child,
+    );
+  }
+}
+
+class NamidaScrollbar extends StatelessWidget {
+  final ScrollController? controller;
+  final Widget child;
+  const NamidaScrollbar({super.key, this.controller, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoScrollbar(
+      controller: controller,
+      child: child,
+    );
+  }
+}
+
+class NamidaAZScrollbar extends StatefulWidget {
+  final Widget child;
+  final ScrollController? controller;
+  final Map<String, int> scrollConfig;
+  final double? itemExtent;
+
+  const NamidaAZScrollbar({
+    super.key,
+    required this.child,
+    this.controller,
+    this.scrollConfig = const {},
+    this.itemExtent,
+  });
+
+  @override
+  State<NamidaAZScrollbar> createState() => _NamidaAZScrollbarState();
+}
+
+class _NamidaAZScrollbarState extends State<NamidaAZScrollbar> {
+  ScrollController? controller;
+  final stackKey = GlobalKey<State<StatefulWidget>>();
+  final columnKey = GlobalKey<State<StatefulWidget>>();
+  double stackHeight = 0;
+  double columnHeight = 1;
+  static const verticalPadding = 6.0;
+  final characters = <String>[];
+  final items = <Text>[];
+
+  final _selectedChar = (0.0, '').obs;
+
+  @override
+  void initState() {
+    controller = widget.controller;
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      final s = columnKey.currentContext?.size;
+      if (s != null) stackHeight = s.height;
+      final h = columnKey.currentContext?.size?.height;
+      if (h != null) columnHeight = h;
+    });
+    stackHeight = stackHeight;
+
+    for (final e in widget.scrollConfig.entries) {
+      characters.add(e.key);
+      items.add(Text(e.key));
+    }
+
+    super.initState();
+  }
+
+  void onScroll(double dy) {
+    final controller = this.controller!;
+    final columnHeight = columnKey.currentContext?.size?.height ?? 1;
+    final p = (dy) / (columnHeight - verticalPadding * 2);
+    final index = ((p * items.length).clamp(0, items.length - 1)).floor();
+    final character = characters[index];
+    _selectedChar.value = (p, character);
+    if (controller.positions.isNotEmpty) {
+      final p = controller.positions.last;
+      final toOffset = (widget.scrollConfig[character] ?? 1) * (widget.itemExtent ?? 0);
+      controller.jumpTo(toOffset.toDouble().clamp(0.0, p.maxScrollExtent));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller == null || widget.scrollConfig.isEmpty) {
+      return NamidaScrollbar(
+        controller: controller,
+        child: widget.child,
+      );
+    }
+
+    return Stack(
+      key: stackKey,
+      alignment: Alignment.center,
+      children: [
+        widget.child,
+        Obx(
+          () => Positioned(
+            right: 14.0,
+            top: _selectedChar.value.$1 * columnHeight,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8.0),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: context.theme.cardColor),
+              child: Text(_selectedChar.value.$2),
+            ),
+          ),
+        ),
+        Positioned(
+          right: 0,
+          child: SizedBox(
+            width: 14.0,
+            height: stackHeight,
+            child: FittedBox(
+              child: DefaultTextStyle(
+                style: context.textTheme.displaySmall!.copyWith(fontSize: stackHeight / widget.scrollConfig.length),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 3.0, vertical: verticalPadding),
+                  decoration: BoxDecoration(
+                    color: context.theme.scaffoldBackgroundColor.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(8.0.multipliedRadius),
+                  ),
+                  child: GestureDetector(
+                    onVerticalDragDown: (details) => onScroll(details.localPosition.dy),
+                    onVerticalDragUpdate: (details) => onScroll(details.localPosition.dy),
+                    child: Text(
+                      widget.scrollConfig.keys.join('\n'),
+                      key: columnKey,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,12 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'package:namida/controller/history_controller.dart';
+import 'package:namida/controller/navigator_controller.dart';
+import 'package:namida/controller/player_controller.dart';
+import 'package:namida/controller/scroll_search_controller.dart';
+import 'package:namida/controller/selected_tracks_controller.dart';
 import 'package:namida/controller/settings_controller.dart';
+import 'package:namida/core/enums.dart';
+import 'package:namida/youtube/youtube_miniplayer.dart';
 
 class Dimensions {
   static Dimensions get inst => _instance;
   static final Dimensions _instance = Dimensions._internal();
   Dimensions._internal();
+
+  final _kMiniplayerBottomPadding = 90.0;
+
+  bool get shouldHideFAB {
+    final fab = settings.floatingActionButton.value;
+    final route = NamidaNavigator.inst.currentRoute?.route;
+    final shouldHide = ScrollSearchController.inst.isGlobalSearchMenuShown.value
+        ? false
+        : fab == FABType.none ||
+            route == RouteType.SETTINGS_page || // bcz no search
+            route == RouteType.SETTINGS_subpage || // bcz no search
+            route == RouteType.YOUTUBE_PLAYLIST_DOWNLOAD_SUBPAGE || // bcz has fab
+            (fab == FABType.shuffle && SelectedTracksController.inst.currentAllTracks.isEmpty) ||
+            (settings.selectedLibraryTab.value == LibraryTab.tracks && LibraryTab.tracks.isBarVisible == false);
+    return shouldHide;
+  }
+
+  /// + active miniplayer padding
+  double get globalBottomPaddingEffective {
+    return (Player.inst.currentQueueYoutube.isNotEmpty
+            ? kYoutubeMiniplayerHeight
+            : Player.inst.currentQueue.isNotEmpty
+                ? _kMiniplayerBottomPadding
+                : 0.0) +
+        12.0;
+  }
+
+  /// + floating action button padding
+  double get _globalBottomPaddingFAB {
+    return shouldHideFAB ? 0.0 : kFABHeight;
+  }
+
+  /// + active miniplayer padding
+  /// + floating action button padding
+  double get globalBottomPaddingTotal {
+    return _globalBottomPaddingFAB + globalBottomPaddingEffective;
+  }
 
   static const tileBottomMargin = 4.0;
   static const tileBottomMargin6 = 6.0;
@@ -91,17 +135,18 @@ class Dimensions {
   /// {@endtemplate}
 }
 
+EdgeInsets get kBottomPaddingInsets => EdgeInsets.only(bottom: Dimensions.inst.globalBottomPaddingTotal);
+SizedBox get kBottomPaddingWidget => SizedBox(height: Dimensions.inst.globalBottomPaddingTotal);
+SliverPadding get kBottomPaddingWidgetSliver => SliverPadding(padding: kBottomPaddingInsets);
+
 // ---- Constant Values ----
-
-const kBottomPadding = 102.0;
-const kBottomPaddingWidget = SizedBox(height: 102.0);
-
 const kHistoryDayHeaderHeight = 40.0;
 const kHistoryDayListTopPadding = 6.0;
 const kHistoryDayListBottomPadding = 12.0;
 
 const kQueueBottomRowHeight = 48.0;
 const kExpandableBoxHeight = 48.0;
+const kFABHeight = 56.0;
 
 const kHistoryDayHeaderHeightWithPadding = kHistoryDayHeaderHeight + kHistoryDayListTopPadding + kHistoryDayListBottomPadding;
 

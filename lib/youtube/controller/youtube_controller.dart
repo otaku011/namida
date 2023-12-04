@@ -122,6 +122,11 @@ class YoutubeController {
   /// - `null` -> not specified.
   final youtubeDownloadTasksInQueueMap = <String, Map<String, bool?>>{}.obs;
 
+  /// {groupName: dateMS}
+  ///
+  /// used to sort group names by latest edited.
+  final latestEditedGroupDownloadTask = <String, int>{};
+
   /// Used to keep track of existing downloaded files, more performant than real-time checking.
   ///
   /// {groupName: {filename: File}}
@@ -133,6 +138,67 @@ class YoutubeController {
   /// Used for easily displaying title & channel inside history directly without needing to fetch or rely on cache.
   /// This comes mainly after a youtube history import
   final _tempBackupVideoInfo = <String, YoutubeVideoHistory>{}; // {id: YoutubeVideoHistory()}
+
+  /// [renameCacheFiles] requires you to stop the download first, otherwise it might result in corrupted files.
+  Future<void> renameConfigFilename({
+    required YoutubeItemDownloadConfig config,
+    required String videoID,
+    required String newFilename,
+    required String groupName,
+    required bool renameCacheFiles,
+  }) async {
+    final oldFilename = config.filename;
+
+    config.filename = newFilename;
+
+    downloadsVideoProgressMap[videoID]?.reAssign(oldFilename, newFilename);
+    downloadsAudioProgressMap[videoID]?.reAssign(oldFilename, newFilename);
+    currentSpeedsInByte[videoID]?.reAssign(oldFilename, newFilename);
+    isDownloading[videoID]?.reAssign(oldFilename, newFilename);
+    isFetchingData[videoID]?.reAssign(oldFilename, newFilename);
+
+    downloadsVideoProgressMap.refresh();
+    downloadsAudioProgressMap.refresh();
+    currentSpeedsInByte.refresh();
+    isDownloading.refresh();
+    isFetchingData.refresh();
+
+    // =============
+
+    _downloadClientsMap[groupName]?.reAssign(oldFilename, newFilename);
+    youtubeDownloadTasksMap[groupName]?.reAssign(oldFilename, newFilename);
+    youtubeDownloadTasksInQueueMap[groupName]?.reAssignNullable(oldFilename, newFilename);
+    downloadedFilesMap[groupName]?.reAssignNullable(oldFilename, newFilename);
+
+    youtubeDownloadTasksMap.refresh();
+    youtubeDownloadTasksInQueueMap.refresh();
+    downloadedFilesMap.refresh();
+
+    final directory = Directory("${AppDirs.YOUTUBE_DOWNLOADS}$groupName");
+    final existingFile = File("${directory.path}/${config.filename}");
+    if (existingFile.existsSync()) {
+      try {
+        existingFile.renameSync("${directory.path}/$newFilename");
+      } catch (_) {}
+    }
+    if (renameCacheFiles) {
+      final aFile = File(_getTempAudioPath(groupName: groupName, fullFilename: oldFilename));
+      final vFile = File(_getTempVideoPath(groupName: groupName, fullFilename: oldFilename));
+
+      if (aFile.existsSync()) {
+        final newPath = _getTempAudioPath(groupName: groupName, fullFilename: newFilename);
+        aFile.renameSync(newPath);
+      }
+      if (vFile.existsSync()) {
+        final newPath = _getTempVideoPath(groupName: groupName, fullFilename: newFilename);
+        vFile.renameSync(newPath);
+      }
+    }
+
+    YTOnGoingFinishedDownloads.inst.refreshList();
+
+    await _writeTaskGroupToStorage(groupName: groupName);
+  }
 
   YoutubeVideoHistory? getBackupVideoInfo(String id) {
     _tempVideoInfosFromStreams.remove('');
@@ -168,18 +234,61 @@ class YoutubeController {
 
   String getYoutubeLink(String id) => id.toYTUrl();
 
-  VideoInfo? getTemporarelyVideoInfo(String id) {
+  VideoInfo? getTemporarelyVideoInfo(String id, {bool checkFromStorage = true}) {
     _tempVideoInfosFromStreams.remove('');
     final si = _tempVideoInfosFromStreams[id];
-    return si == null ? null : VideoInfo.fromStreamInfoItem(si);
+    if (si != null) return VideoInfo.fromStreamInfoItem(si);
+    if (checkFromStorage) {
+      final file = File('${AppDirs.YT_METADATA_TEMP}$id.txt');
+      final res = file.readAsJsonSync();
+      try {
+        final strInfo = StreamInfoItem.fromMap(res);
+        return VideoInfo.fromStreamInfoItem(strInfo);
+      } catch (_) {}
+    }
+    return null;
   }
 
   /// Keeps the map at max 2000 items. maintained by least recently used.
-  void _fillTempVideoInfoMap(Iterable<StreamInfoItem>? items) {
+  void _fillTempVideoInfoMap(Iterable<StreamInfoItem>? items) async {
     if (items != null) {
-      final entries = items.map((e) => MapEntry(e.id ?? '', e));
-      _tempVideoInfosFromStreams.optimizedAdd(entries, 2000);
+      final map = _tempVideoInfosFromStreams;
+
+      final entriesForStorage = <MapEntry<String, Map<String, String?>>>[];
+      for (final e in items) {
+        final id = e.id;
+        if (id != null) {
+          // -- adding to storage (later)
+          // -- we only add if it didnt exist in map before, to minimize writes
+          if (map[id] == null) entriesForStorage.add(MapEntry(id, e.toMap()));
+
+          // -- adding to memory (directly)
+          map.remove(id);
+          map[id] = e;
+        }
+      }
+      // -- clearing excess from map to keep it at 2000
+      final excess = map.length - 2000;
+      if (excess > 0) {
+        final excessKeys = map.keys.take(excess).toList();
+        excessKeys.loop((k, _) => map.remove(k));
+      }
+
+      await _saveTemporarelyVideoInfoIsolate.thready({
+        'dirPath': AppDirs.YT_METADATA_TEMP,
+        'entries': entriesForStorage,
+      });
     }
+  }
+
+  static void _saveTemporarelyVideoInfoIsolate(Map p) {
+    final dirPath = p['dirPath'] as String;
+    final entries = p['entries'] as List<MapEntry<String, Map<String, String?>>>;
+
+    entries.loop((e, index) {
+      final file = File('$dirPath${e.key}.txt');
+      file.writeAsJsonSync(e.value);
+    });
   }
 
   /// Checks if the requested id is still playing, since most functions are async and will often
@@ -229,7 +338,7 @@ class YoutubeController {
   }
 
   /// For full list of items, use [streams] getter in [playlist].
-  Future<List<StreamInfoItem>> getPlaylistStreams(YoutubePlaylist? playlist, {bool forceInitial = false}) async {
+  Future<List<StreamInfoItem>> getPlaylistStreams(YoutubePlaylist? playlist, {bool forceInitial = false, bool saveToStorage = true}) async {
     if (playlist == null) return [];
     final streams = forceInitial ? await playlist.getStreams() : await playlist.getStreamsNextPage();
     _fillTempVideoInfoMap(streams);
@@ -403,7 +512,11 @@ class YoutubeController {
     final cachedFile = File("${AppDirs.YT_METADATA}$id.txt");
     if (cachedFile.existsSync()) {
       final res = cachedFile.readAsJsonSync();
-      return VideoInfo.fromMap(res);
+      if (res != null) {
+        try {
+          return VideoInfo.fromMap(res);
+        } catch (_) {}
+      }
     }
     return null;
   }
@@ -583,7 +696,7 @@ class YoutubeController {
 
   Future<int?> _getContentSize(String url) async => await NewPipeExtractorDart.httpClient.getContentLength(url);
 
-  String cleanupFilename(String filename) => filename.replaceAll(RegExp(r'[#\$|/\\!^:]', caseSensitive: false), '_');
+  String cleanupFilename(String filename) => filename.replaceAll(RegExp(r'[#\$|/\\!^:"]', caseSensitive: false), '_');
 
   Future<void> loadDownloadTasksInfoFile() async {
     await for (final f in Directory(AppDirs.YT_DOWNLOAD_TASKS).list()) {
@@ -591,13 +704,37 @@ class YoutubeController {
         final groupName = f.path.getFilename.split('.').first;
         final res = await f.readAsJson() as Map<String, dynamic>?;
         if (res != null) {
+          final fileModified = f.statSync().modified;
           youtubeDownloadTasksMap[groupName] ??= {};
           downloadedFilesMap[groupName] ??= {};
+          if (fileModified != DateTime(1970)) {
+            latestEditedGroupDownloadTask[groupName] ??= fileModified.millisecondsSinceEpoch;
+          }
           for (final v in res.entries) {
             final ytitem = YoutubeItemDownloadConfig.fromJson(v.value as Map<String, dynamic>);
-            final file = File("${AppDirs.YOUTUBE_DOWNLOADS}$groupName/${ytitem.filename}");
+            final saveDirPath = "${AppDirs.YOUTUBE_DOWNLOADS}$groupName";
+            final file = File("$saveDirPath/${ytitem.filename}");
+            final fileExists = file.existsSync();
             youtubeDownloadTasksMap[groupName]![v.key] = ytitem;
-            downloadedFilesMap[groupName]![v.key] = file.existsSync() ? file : null;
+            downloadedFilesMap[groupName]![v.key] = fileExists ? file : null;
+            if (!fileExists) {
+              final aFile = File("$saveDirPath/.tempa_${ytitem.filename}");
+              final vFile = File("$saveDirPath/.tempv_${ytitem.filename}");
+              if (aFile.existsSync()) {
+                downloadsAudioProgressMap[ytitem.id] ??= <String, DownloadProgress>{}.obs;
+                downloadsAudioProgressMap[ytitem.id]![ytitem.filename] = DownloadProgress(
+                  progress: aFile.fileSizeSync() ?? 0,
+                  totalProgress: 0,
+                );
+              }
+              if (vFile.existsSync()) {
+                downloadsVideoProgressMap[ytitem.id] ??= <String, DownloadProgress>{}.obs;
+                downloadsVideoProgressMap[ytitem.id]![ytitem.filename] = DownloadProgress(
+                  progress: vFile.fileSizeSync() ?? 0,
+                  totalProgress: 0,
+                );
+              }
+            }
           }
         }
       }
@@ -656,8 +793,15 @@ class YoutubeController {
     );
   }
 
-  Future<void> resumeDownloadTasks({required String groupName, List<YoutubeItemDownloadConfig> itemsConfig = const []}) async {
+  Future<void> resumeDownloadTasks({
+    required String groupName,
+    List<YoutubeItemDownloadConfig> itemsConfig = const [],
+    bool skipExistingFiles = true,
+  }) async {
     final finalItems = itemsConfig.isNotEmpty ? itemsConfig : youtubeDownloadTasksMap[groupName]?.values.toList() ?? [];
+    if (skipExistingFiles) {
+      finalItems.removeWhere((element) => YoutubeController.inst.downloadedFilesMap[groupName]?[element.filename] != null);
+    }
     if (finalItems.isNotEmpty) {
       await downloadYoutubeVideos(
         useCachedVersionsIfAvailable: true,
@@ -678,9 +822,9 @@ class YoutubeController {
   }) {
     youtubeDownloadTasksInQueueMap[groupName] ??= {};
     void onMatch(String groupName, YoutubeItemDownloadConfig config) {
+      youtubeDownloadTasksInQueueMap[groupName]![config.filename] = false;
       _downloadClientsMap[groupName]?[config.filename]?.close(force: true);
       _downloadClientsMap[groupName]?.remove(config.filename);
-      youtubeDownloadTasksInQueueMap[groupName]![config.filename] = false;
       _breakRetrievingInfoRequest(config);
     }
 
@@ -697,7 +841,6 @@ class YoutubeController {
         for (final c in groupConfigs.values) {
           onMatch(groupName, c);
         }
-        youtubeDownloadTasksMap.remove(groupName);
       }
     } else if (videosIds.isNotEmpty) {
       _matchIDsForItemConfig(
@@ -766,6 +909,12 @@ class YoutubeController {
     youtubeDownloadTasksMap.refresh();
     downloadedFilesMap.refresh();
 
+    latestEditedGroupDownloadTask[groupName] = DateTime.now().millisecondsSinceEpoch;
+
+    await _writeTaskGroupToStorage(groupName: groupName);
+  }
+
+  Future<void> _writeTaskGroupToStorage({required String groupName}) async {
     final mapToWrite = youtubeDownloadTasksMap[groupName];
     final file = File("${AppDirs.YT_DOWNLOAD_TASKS}$groupName.json");
     if (mapToWrite?.isNotEmpty == true) {
@@ -791,12 +940,10 @@ class YoutubeController {
     List<String> preferredQualities = const [],
     Future<void> Function(File? downloadedFile)? onOldFileDeleted,
     Future<void> Function(File? deletedFile)? onFileDownloaded,
+    Directory? saveDirectory,
   }) async {
     _updateDownloadTask(groupName: groupName, itemsConfig: itemsConfig);
     YoutubeParallelDownloadsHandler.inst.setMaxParalellDownloads(parallelDownloads);
-
-    final directory = Directory("${AppDirs.YOUTUBE_DOWNLOADS}$groupName");
-    await directory.create(recursive: true);
 
     Future<void> downloady(YoutubeItemDownloadConfig config) async {
       final videoID = config.id;
@@ -870,9 +1017,11 @@ class YoutubeController {
       final downloadedFile = await _downloadYoutubeVideoRaw(
         groupName: groupName,
         id: videoID,
+        config: config,
         useCachedVersionsIfAvailable: useCachedVersionsIfAvailable,
-        saveDirectory: directory,
+        saveDirectory: saveDirectory,
         filename: config.filename,
+        fileExtension: config.videoStream?.formatSuffix ?? config.audioStream?.formatSuffix ?? '',
         videoStream: config.videoStream,
         audioStream: config.audioStream,
         merge: true,
@@ -952,12 +1101,51 @@ class YoutubeController {
     }
   }
 
+  String _getTempAudioPath({
+    required String groupName,
+    required String fullFilename,
+    Directory? saveDir,
+  }) {
+    return _getTempDownloadPath(
+      groupName: groupName,
+      fullFilename: fullFilename,
+      prefix: '.tempa_',
+      saveDir: saveDir,
+    );
+  }
+
+  String _getTempVideoPath({
+    required String groupName,
+    required String fullFilename,
+    Directory? saveDir,
+  }) {
+    return _getTempDownloadPath(
+      groupName: groupName,
+      fullFilename: fullFilename,
+      prefix: '.tempv_',
+      saveDir: saveDir,
+    );
+  }
+
+  /// [directoryPath] must NOT end with `/`
+  String _getTempDownloadPath({
+    required String groupName,
+    required String fullFilename,
+    required String prefix,
+    Directory? saveDir,
+  }) {
+    final saveDirPath = saveDir?.path ?? "${AppDirs.YOUTUBE_DOWNLOADS}$groupName";
+    return "$saveDirPath/$prefix$fullFilename";
+  }
+
   Future<File?> _downloadYoutubeVideoRaw({
     required String id,
     required String groupName,
+    required YoutubeItemDownloadConfig config,
     required bool useCachedVersionsIfAvailable,
-    required Directory saveDirectory,
+    required Directory? saveDirectory,
     required String filename,
+    required String fileExtension,
     required VideoStream? videoStream,
     required AudioOnlyStream? audioStream,
     required Map<String, String?> ffmpegTags,
@@ -974,12 +1162,24 @@ class YoutubeController {
   }) async {
     if (id == '') return null;
 
+    if (filename.split('.').last != fileExtension) filename = "$filename.$fileExtension";
+
     final filenameClean = cleanupFilename(filename);
+    renameConfigFilename(
+      videoID: id,
+      groupName: groupName,
+      config: config,
+      newFilename: filenameClean,
+      renameCacheFiles: false, // no worries we still gonna do the job.
+    );
 
     isDownloading[id] ??= <String, bool>{}.obs;
     isDownloading[id]![filenameClean] = true;
 
     _startNotificationTimer();
+
+    saveDirectory ??= Directory("${AppDirs.YOUTUBE_DOWNLOADS}$groupName");
+    await saveDirectory.create(recursive: true);
 
     if (deleteOldFile) {
       final file = File("${saveDirectory.path}/$filenameClean");
@@ -1016,11 +1216,6 @@ class YoutubeController {
           videoFile = filecache;
           isVideoFileCached = true;
         } else {
-          String getVPath(bool isTemp) {
-            final prefix = isTemp ? '.tempv_' : '';
-            return "${saveDirectory.path}/$prefix$filenameClean";
-          }
-
           if (videoStream.sizeInBytes == null || videoStream.sizeInBytes == 0) {
             videoStream.sizeInBytes = await _getContentSize(videoStream.url ?? '');
           }
@@ -1033,7 +1228,11 @@ class YoutubeController {
             url: videoStream.url ?? '',
             targetSize: videoStream.sizeInBytes ?? 0,
             filename: filenameClean,
-            destinationFilePath: getVPath(true),
+            destinationFilePath: _getTempVideoPath(
+              groupName: groupName,
+              fullFilename: filenameClean,
+              saveDir: saveDirectory,
+            ),
             onInitialFileSize: (initialFileSize) {
               onInitialVideoFileSize(initialFileSize);
               bytesLength = initialFileSize;
@@ -1072,11 +1271,6 @@ class YoutubeController {
           audioFile = filecache;
           isAudioFileCached = true;
         } else {
-          String getAPath(bool isTemp) {
-            final prefix = isTemp ? '.tempa_' : '';
-            return "${saveDirectory.path}/$prefix$filenameClean";
-          }
-
           if (audioStream.sizeInBytes == null || audioStream.sizeInBytes == 0) {
             audioStream.sizeInBytes = await _getContentSize(audioStream.url ?? '');
           }
@@ -1088,7 +1282,11 @@ class YoutubeController {
             url: audioStream.url ?? '',
             targetSize: audioStream.sizeInBytes ?? 0,
             filename: filenameClean,
-            destinationFilePath: getAPath(true),
+            destinationFilePath: _getTempAudioPath(
+              groupName: groupName,
+              fullFilename: filenameClean,
+              saveDir: saveDirectory,
+            ),
             onInitialFileSize: (initialFileSize) {
               onInitialAudioFileSize(initialFileSize);
               bytesLength = initialFileSize;
@@ -1174,13 +1372,15 @@ class YoutubeController {
     }
 
     isDownloading[id]![filenameClean] = false;
+
+    final wasPaused = youtubeDownloadTasksInQueueMap[groupName]?[filenameClean] == false;
     _doneDownloadingNotification(
       videoId: id,
       videoTitle: filename,
       nameIdentifier: filenameClean,
       filename: filenameClean,
       downloadedFile: df,
-      canceledByUser: false, // TODO: find a way for when downloads are paused.
+      canceledByUser: wasPaused,
     );
     return df;
   }

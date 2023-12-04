@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_scrollbar_modified/flutter_scrollbar_modified.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:get/get.dart';
 
@@ -39,7 +38,7 @@ class GenresPage extends StatelessWidget {
     final cardDimensions = Dimensions.inst.getMultiCardDimensions(countPerRow);
 
     return BackgroundWrapper(
-      child: CupertinoScrollbar(
+      child: NamidaScrollbar(
         controller: scrollController,
         child: AnimationLimiter(
           child: Obx(
@@ -76,7 +75,7 @@ class GenresPage extends StatelessWidget {
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: countPerRow, childAspectRatio: 0.8, mainAxisSpacing: 8.0),
                     controller: scrollController,
                     itemCount: SearchSortController.inst.genreSearchList.length,
-                    padding: const EdgeInsets.only(bottom: kBottomPadding),
+                    padding: kBottomPaddingInsets,
                     itemBuilder: (BuildContext context, int i) {
                       final genre = SearchSortController.inst.genreSearchList[i];
                       return AnimatingGrid(

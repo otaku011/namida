@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_scrollbar_modified/flutter_scrollbar_modified.dart';
 import 'package:get/get.dart';
 import 'package:playlist_manager/module/playlist_id.dart';
 
@@ -162,7 +161,7 @@ class YoutubePlaylistsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMinimalView = minimalView ?? idsToAdd.isNotEmpty;
 
-    return CupertinoScrollbar(
+    return NamidaScrollbar(
       child: CustomScrollView(
         slivers: [
           const SliverPadding(padding: EdgeInsets.only(bottom: 12.0)),
@@ -246,7 +245,7 @@ class YoutubePlaylistsView extends StatelessWidget {
               final playlistsMap = YoutubePlaylistController.inst.playlistsMap;
               final playlistsNames = playlistsMap.keys.toList();
               return SliverFixedExtentList.builder(
-                itemExtent: Dimensions.youtubeCardItemExtent,
+                itemExtent: Dimensions.youtubeCardItemExtent * 0.9,
                 itemCount: playlistsNames.length,
                 itemBuilder: (context, index) {
                   final name = playlistsNames[index];
@@ -273,13 +272,14 @@ class YoutubePlaylistsView extends StatelessWidget {
                         return YoutubeCard(
                           isImageImportantInCache: true,
                           extractColor: true,
-                          thumbnailWidthPercentage: 0.8,
+                          thumbnailWidthPercentage: 0.75,
                           videoId: playlist.tracks.firstOrNull?.id,
                           thumbnailUrl: null,
                           shimmerEnabled: false,
                           title: playlist.name,
                           subtitle: playlist.creationDate.dateFormattedOriginal,
-                          thirdLineText: playlist.tracks.length.displayVideoKeyword,
+                          displaythirdLineText: false,
+                          thirdLineText: '',
                           displayChannelThumbnail: false,
                           channelThumbnailUrl: '',
                           onTap: () {
@@ -296,9 +296,7 @@ class YoutubePlaylistsView extends StatelessWidget {
                                 YoutubePlaylistController.inst.addTracksToPlaylist(playlist, idsToAdd);
                               }
                             } else {
-                              NamidaNavigator.inst.navigateTo(
-                                Obx(() => YTNormalPlaylistSubpage(playlist: YoutubePlaylistController.inst.getPlaylist(playlist.name)!)),
-                              );
+                              NamidaNavigator.inst.navigateTo(YTNormalPlaylistSubpage(playlistName: playlist.name));
                             }
                           },
                           smallBoxText: playlist.tracks.length.formatDecimal(),
@@ -312,7 +310,7 @@ class YoutubePlaylistsView extends StatelessWidget {
               );
             },
           ),
-          if (!isMinimalView) const SliverPadding(padding: EdgeInsets.only(bottom: kBottomPadding)),
+          if (!isMinimalView) kBottomPaddingWidgetSliver,
         ],
       ),
     );

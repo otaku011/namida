@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dart_extensions/dart_extensions.dart';
+import 'package:get/get_rx/src/rx_types/rx_types.dart';
 
 import 'package:namida/class/track.dart';
 import 'package:namida/controller/indexer_controller.dart';
@@ -299,19 +300,19 @@ extension TitleAndArtistUtils on String {
         return (a, title);
       }
     }
-    final regexDoesntCareAboutSpaces = RegExp(
-      r'^(.*?)(?:\s?-\s?|\s?\|\s?|\s?by\s|\s?["「])(.*?)(?:"|」)?$',
-      caseSensitive: false,
-    );
-    final match = regexDoesntCareAboutSpaces.firstMatch(input);
-    if (match != null) {
-      final artist = match.group(1)?.trim();
-      final title = match.group(2)?.trim();
-      if (artist != null && title != null) {
-        final a = artist.startsWith('「') ? artist.replaceRange(0, 1, '') : artist;
-        return (a, title);
-      }
-    }
+    // final regexDoesntCareAboutSpaces = RegExp(
+    //   r'^(.*?)(?:\s?-\s?|\s?\|\s?|\s?by\s|\s?["「])(.*?)(?:"|」)?$',
+    //   caseSensitive: false,
+    // );
+    // final match = regexDoesntCareAboutSpaces.firstMatch(input);
+    // if (match != null) {
+    //   final artist = match.group(1)?.trim();
+    //   final title = match.group(2)?.trim();
+    //   if (artist != null && title != null) {
+    //     final a = artist.startsWith('「') ? artist.replaceRange(0, 1, '') : artist;
+    //     return (a, title);
+    //   }
+    // }
     return (null, null);
   }
 
@@ -454,5 +455,28 @@ extension NavigatorUtils on BuildContext? {
   void safePop({bool rootNavigator = false}) {
     final context = this;
     if (context != null && context.mounted) Navigator.of(context, rootNavigator: rootNavigator).maybePop();
+  }
+}
+
+extension DisposingUtils on TextEditingController {
+  Future<void> disposeAfterAnimation({int durationMS = 200, void Function()? also}) async {
+    void fn() {
+      dispose();
+      if (also != null) also();
+    }
+
+    await fn.executeDelayed(Duration(milliseconds: durationMS));
+  }
+}
+
+extension ExecuteDelayedUtils<T> on T Function() {
+  Future<T> executeDelayed(Duration dur) async {
+    return await Future.delayed(dur, this);
+  }
+}
+
+extension RxStreamClosing<T> on Rx<T> {
+  Future<void> closeAfterDelay({int durationMS = 500}) async {
+    return await Future.delayed(Duration(milliseconds: durationMS), close);
   }
 }

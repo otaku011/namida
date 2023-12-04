@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:flutter_scrollbar_modified/flutter_scrollbar_modified.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:get/get.dart';
 import 'package:history_manager/history_manager.dart';
@@ -420,7 +419,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return BackgroundWrapper(
-      child: CupertinoScrollbar(
+      child: NamidaScrollbar(
         child: ShimmerWrapper(
           shimmerDurationMS: 550,
           shimmerDelayMS: 250,
@@ -628,7 +627,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     skipFirst: 1,
                     separator: const SliverPadding(padding: EdgeInsets.only(bottom: 12.0)),
                   ),
-                  const SliverPadding(padding: EdgeInsets.only(bottom: kBottomPadding)),
+                  kBottomPaddingWidgetSliver,
                 ],
               ),
             ),
@@ -861,6 +860,7 @@ class _MixesCardState extends State<_MixesCard> {
     Widget artworkWidget(bool titleInside) => NamidaHero(
           tag: 'mix_thumbnail_${widget.title}${widget.index}',
           child: ArtworkWidget(
+            key: Key(track?.pathToImage ?? ''),
             compressed: false,
             blur: 1.5,
             borderRadius: titleInside ? 12.0 : 8.0,

@@ -7,7 +7,6 @@ import 'package:newpipeextractor_dart/newpipeextractor_dart.dart';
 
 import 'package:namida/controller/current_color.dart';
 import 'package:namida/controller/navigator_controller.dart';
-import 'package:namida/controller/player_controller.dart';
 import 'package:namida/controller/settings_controller.dart';
 import 'package:namida/core/constants.dart';
 import 'package:namida/core/dimensions.dart';
@@ -19,9 +18,9 @@ import 'package:namida/ui/widgets/custom_widgets.dart';
 import 'package:namida/youtube/class/youtube_id.dart';
 import 'package:namida/youtube/class/youtube_item_download_config.dart';
 import 'package:namida/youtube/controller/youtube_controller.dart';
+import 'package:namida/youtube/functions/download_sheet.dart';
 import 'package:namida/youtube/functions/video_download_options.dart';
 import 'package:namida/youtube/widgets/yt_thumbnail.dart';
-import 'package:namida/youtube/youtube_miniplayer.dart';
 
 class YTPlaylistDownloadPage extends StatefulWidget {
   final List<YoutubeID> ids;
@@ -58,7 +57,8 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
   @override
   void initState() {
     _groupName.value = widget.playlistName;
-    _addYTIDsToSelected(widget.ids);
+    _addAllYTIDsToSelected();
+    _fillConfigMap();
     super.initState();
   }
 
@@ -72,8 +72,43 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
     super.dispose();
   }
 
-  void _addYTIDsToSelected(List<YoutubeID> ids) {
-    _selectedList.addAll(ids.map((e) => e.id));
+  void _fillConfigMap() {
+    widget.ids.loop((e, index) {
+      final id = e.id;
+      final info = YoutubeController.inst.getTemporarelyVideoInfo(id) ?? YoutubeController.inst.fetchVideoDetailsFromCacheSync(id);
+      final filename = info?.name ?? id;
+      _configMap[id] = YoutubeItemDownloadConfig(
+        id: id,
+        filename: filename,
+        ffmpegTags: {},
+        fileDate: null,
+        videoStream: null,
+        audioStream: null,
+        prefferedVideoQualityID: null,
+        prefferedAudioQualityID: null,
+        fetchMissingStreams: true,
+      );
+    });
+  }
+
+  void _addAllYTIDsToSelected() {
+    _selectedList.addAll(widget.ids.map((e) => e.id));
+  }
+
+  Future<void> _onEditIconTap({
+    required String id,
+    required VideoInfo? info,
+  }) async {
+    await showDownloadVideoBottomSheet(
+      showSpecificFileOptionsInEditTagDialog: false,
+      videoId: id,
+      info: info,
+      confirmButtonText: lang.CONFIRM,
+      onConfirmButtonTap: (groupName, config) {
+        _configMap[id] = config;
+        return true;
+      },
+    );
   }
 
   void _showAllConfigDialog(BuildContext context) {
@@ -206,14 +241,7 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
     );
   }
 
-  double get _bottomPaddingEffective {
-    return (Player.inst.currentQueueYoutube.isNotEmpty
-            ? kYoutubeMiniplayerHeight
-            : Player.inst.currentQueue.isNotEmpty
-                ? kBottomPadding
-                : 0.0) +
-        12.0;
-  }
+  double get _bottomPaddingEffective => Dimensions.inst.globalBottomPaddingEffective;
 
   double _hmultiplier = 0.9;
   double _previousScale = 0.9;
@@ -260,7 +288,7 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
                           onChanged: (value) {
                             if (_selectedList.length != widget.ids.length) {
                               _selectedList.clear();
-                              _addYTIDsToSelected(widget.ids);
+                              _addAllYTIDsToSelected();
                             } else {
                               _selectedList.clear();
                             }
@@ -298,8 +326,7 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
                           return Obx(
                             () {
                               final isSelected = _selectedList.contains(id);
-                              // TODO: get filename somehow
-                              final filename = info?.name;
+                              final filename = _configMap[id]?.filename;
                               final fileExists = File("${AppDirs.YOUTUBE_DOWNLOADS}${_groupName.value}/$filename").existsSync();
                               return NamidaInkWell(
                                 animationDurationMS: 200,
@@ -315,6 +342,25 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
                                       ))
                                     : const BoxDecoration(),
                                 onTap: () => _onItemTap(id),
+                                onLongPress: () {
+                                  if (_selectedList.isEmpty) return;
+                                  int? latestIndex;
+                                  for (int i = widget.ids.length - 1; i >= 0; i--) {
+                                    final item = widget.ids[i];
+                                    if (_selectedList.contains(item.id)) {
+                                      latestIndex = i;
+                                      break;
+                                    }
+                                  }
+                                  if (latestIndex != null && index > latestIndex) {
+                                    final selectedRange = widget.ids.getRange(latestIndex + 1, index + 1);
+                                    selectedRange.toList().loop((e, index) {
+                                      if (!_selectedList.contains(e.id)) _selectedList.add(e.id);
+                                    });
+                                  } else {
+                                    _onItemTap(id);
+                                  }
+                                },
                                 child: Stack(
                                   children: [
                                     Row(
@@ -387,6 +433,13 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
                                               const SizedBox(height: 6.0),
                                             ],
                                           ),
+                                        ),
+                                        const SizedBox(width: 4.0),
+                                        NamidaIconButton(
+                                          horizontalPadding: 0.0,
+                                          icon: Broken.edit_2,
+                                          iconSize: 20.0,
+                                          onPressed: () => _onEditIconTap(id: id, info: info),
                                         ),
                                         Checkbox.adaptive(
                                           shape: RoundedRectangleBorder(
@@ -464,28 +517,7 @@ class _YTPlaylistDownloadPageState extends State<YTPlaylistDownloadPage> {
                           NamidaNavigator.inst.popPage();
                           YoutubeController.inst.downloadYoutubeVideos(
                             groupName: widget.playlistName,
-                            itemsConfig: _selectedList
-                                .map(
-                                  (id) =>
-                                      _configMap[id] ??
-                                      YoutubeItemDownloadConfig(
-                                        id: id,
-                                        filename: () {
-                                          // TODO: better way inside controller
-                                          final info = YoutubeController.inst.getTemporarelyVideoInfo(id) ?? YoutubeController.inst.fetchVideoDetailsFromCacheSync(id);
-                                          final ext = downloadAudioOnly.value ? 'm4a' : 'mp4';
-                                          return "${info?.name ?? id}.$ext";
-                                        }(),
-                                        ffmpegTags: {},
-                                        fileDate: null,
-                                        videoStream: null,
-                                        audioStream: null,
-                                        prefferedVideoQualityID: null,
-                                        prefferedAudioQualityID: null,
-                                        fetchMissingStreams: true,
-                                      ),
-                                )
-                                .toList(),
+                            itemsConfig: _selectedList.map((id) => _configMap[id]!).toList(),
                             useCachedVersionsIfAvailable: true,
                             autoExtractTitleAndArtist: autoExtractTitleAndArtist,
                             keepCachedVersionsIfDownloaded: keepCachedVersionsIfDownloaded,

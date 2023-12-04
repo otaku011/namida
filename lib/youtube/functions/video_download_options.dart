@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:newpipeextractor_dart/newpipeextractor_dart.dart';
 
 import 'package:namida/controller/ffmpeg_controller.dart';
 import 'package:namida/controller/navigator_controller.dart';
@@ -17,11 +16,12 @@ import 'package:namida/ui/widgets/custom_widgets.dart';
 
 Future<void> showVideoDownloadOptionsSheet({
   required BuildContext context,
-  required String videoTitle,
-  required VideoInfo videoInfo,
+  required String? videoTitle,
+  required String? videoUploader,
   required Map<String, String?> tagMaps,
   required bool supportTagging,
   required void Function(String newFolderPath) onDownloadGroupNameChanged,
+  required bool showSpecificFileOptions,
 }) async {
   final controllersMap = {for (final t in FFMPEGTagField.values) t: TextEditingController(text: tagMaps[t])};
 
@@ -86,28 +86,30 @@ Future<void> showVideoDownloadOptionsSheet({
               Expanded(
                 child: ListView(
                   children: [
-                    Obx(
-                      () => CustomSwitchListTile(
-                        icon: Broken.document_code,
-                        visualDensity: const VisualDensity(horizontal: VisualDensity.minimumDensity, vertical: VisualDensity.minimumDensity),
-                        title: lang.SET_FILE_LAST_MODIFIED_AS_VIDEO_UPLOAD_DATE,
-                        value: settings.downloadFilesWriteUploadDate.value,
-                        onChanged: (isTrue) => settings.save(downloadFilesWriteUploadDate: !isTrue),
+                    if (showSpecificFileOptions) ...[
+                      Obx(
+                        () => CustomSwitchListTile(
+                          icon: Broken.document_code,
+                          visualDensity: const VisualDensity(horizontal: VisualDensity.minimumDensity, vertical: VisualDensity.minimumDensity),
+                          title: lang.SET_FILE_LAST_MODIFIED_AS_VIDEO_UPLOAD_DATE,
+                          value: settings.downloadFilesWriteUploadDate.value,
+                          onChanged: (isTrue) => settings.save(downloadFilesWriteUploadDate: !isTrue),
+                        ),
                       ),
-                    ),
-                    Obx(
-                      () => CustomSwitchListTile(
-                        icon: Broken.tick_circle,
-                        visualDensity: const VisualDensity(horizontal: VisualDensity.minimumDensity, vertical: VisualDensity.minimumDensity),
-                        title: lang.KEEP_CACHED_VERSIONS,
-                        value: settings.downloadFilesKeepCachedVersions.value,
-                        onChanged: (isTrue) => settings.save(downloadFilesKeepCachedVersions: !isTrue),
+                      Obx(
+                        () => CustomSwitchListTile(
+                          icon: Broken.tick_circle,
+                          visualDensity: const VisualDensity(horizontal: VisualDensity.minimumDensity, vertical: VisualDensity.minimumDensity),
+                          title: lang.KEEP_CACHED_VERSIONS,
+                          value: settings.downloadFilesKeepCachedVersions.value,
+                          onChanged: (isTrue) => settings.save(downloadFilesKeepCachedVersions: !isTrue),
+                        ),
                       ),
-                    ),
-                    YTDownloadOptionFolderListTile(
-                      onDownloadGroupNameChanged: onDownloadGroupNameChanged,
-                      visualDensity: const VisualDensity(horizontal: VisualDensity.minimumDensity, vertical: VisualDensity.minimumDensity),
-                    ),
+                      YTDownloadOptionFolderListTile(
+                        onDownloadGroupNameChanged: onDownloadGroupNameChanged,
+                        visualDensity: const VisualDensity(horizontal: VisualDensity.minimumDensity, vertical: VisualDensity.minimumDensity),
+                      ),
+                    ],
                     const SizedBox(height: 6.0),
                     if (!supportTagging) ...[
                       const SizedBox(height: 12.0),
@@ -178,10 +180,16 @@ Future<void> showVideoDownloadOptionsSheet({
                     flex: 4,
                     child: InkWell(
                       onTap: () {
-                        final artistAndTitle = videoTitle.splitArtistAndTitle();
+                        (String?, String?) artistAndTitle = (null, null);
+                        if (tagMaps.isNotEmpty) {
+                          artistAndTitle = (tagMaps[FFMPEGTagField.artist], tagMaps[FFMPEGTagField.title]);
+                        }
+                        if (videoTitle != null && artistAndTitle.$1 == null && artistAndTitle.$2 == null) {
+                          artistAndTitle = videoTitle.splitArtistAndTitle();
+                        }
                         if (artistAndTitle.$1 != null) controllersMap[FFMPEGTagField.artist]?.text = artistAndTitle.$1!;
                         if (artistAndTitle.$2 != null) controllersMap[FFMPEGTagField.title]?.text = artistAndTitle.$2!;
-                        controllersMap[FFMPEGTagField.album]?.text = videoInfo.uploaderName ?? '';
+                        controllersMap[FFMPEGTagField.album]?.text = tagMaps[FFMPEGTagField.album] ?? videoUploader ?? '';
                       },
                       child: Text(
                         lang.AUTO_EXTRACT_TAGS_FROM_FILENAME,
